@@ -1,7 +1,5 @@
 package com.kavin.media;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import android.Manifest;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -18,11 +16,12 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageView;
 
-import com.kavin.jutils.utils.permission.PermissionRequest;
+import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import com.kavin.jutils.utils.permission.PermissionRequest;
 
 public class Activity_Draw extends AppCompatActivity {
 
