@@ -5,7 +5,10 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
+import android.graphics.PixelFormat;
 import android.os.Bundle;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 
 import androidx.core.app.ActivityCompat;
 
@@ -15,7 +18,9 @@ public class MainActivity extends Activity{
 
     public static final int MULTIPLE_REQUEST_CODE = 8736;
     public static MainActivity mActivity;
-    public SkeletonUI mSkeletonUI;
+    private SurfaceView mSurfaceview;//show camera
+    private SurfaceHolder mSurfaceHolder;
+
     public CameraThread mCameraThread;
 
     @Override
@@ -24,9 +29,11 @@ public class MainActivity extends Activity{
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        //init view
-        mSkeletonUI = new SkeletonUI(this);
-        mSkeletonUI.initSurfaceView();
+        mSurfaceview = (SurfaceView) mActivity.findViewById(R.id.surfaceview);
+        mSurfaceview.setZOrderOnTop(true);//on the top level
+        mSurfaceview.getHolder().setFormat(PixelFormat.TRANSPARENT);//make this view transparent
+        mSurfaceHolder = mSurfaceview.getHolder();
+
         mCameraThread = new CameraThread(this);
         mCameraThread.initTextureView();
 
