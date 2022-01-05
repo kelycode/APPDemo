@@ -1,51 +1,88 @@
 package com.kavin.camera2api;
 
 import android.Manifest;
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.pm.PackageManager;
-import android.os.Handler;
 import android.os.Bundle;
-import android.widget.ImageView;
-import android.widget.TextView;
 
-public class MainActivity extends AppCompatActivity {
+import androidx.core.app.ActivityCompat;
 
-    private Handler mThreadHandler;
-    private ImageView mImageView;
-    private TextView mTextView;
-    private CameraThread mCameraThread;
-    private CameraViewThread mCameraViewThread;
+import com.usens.androidphonecamera.R;
+
+public class MainActivity extends Activity{
+
+    public static final int MULTIPLE_REQUEST_CODE = 8736;
+    public static MainActivity mActivity;
+    public SkeletonUI mSkeletonUI;
+    public CameraThread mCameraThread;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-
+        mActivity = this;
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        mCameraThread = new CameraThread(getApplicationContext());
 
-        mTextView = (TextView) findViewById(R.id.textView);
-        mImageView = (ImageView) findViewById(R.id.imageView);
+        //init view
+        mSkeletonUI = new SkeletonUI(this);
+        mSkeletonUI.initSurfaceView();
+        mCameraThread = new CameraThread(this);
+        mCameraThread.initTextureView();
 
-
-        //Request Camera permission
-        if (ContextCompat.checkSelfPermission(this,
-                Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.CAMERA}, 0);
+        //check and ask for CAMERA,READ_EXTERNAL_STORAGE and WRITE_EXTERNAL_STORAGE permission
+        if (android.os.Build.VERSION.SDK_INT >= 23) {
+            ActivityCompat.requestPermissions(this, new String[] {Manifest.permission.CAMERA}, MULTIPLE_REQUEST_CODE);
         }
+    }
 
-        mThreadHandler = new Handler(getMainLooper());
-        mThreadHandler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                //               mCameraThread.startCameraFromOwner(0);
+    /**
+     * Permissions call back
+     */
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        boolean permissionAllGranted = true;
+        for (int i = 0; i < grantResults.length; i++) {
+            if (grantResults[i] != PackageManager.PERMISSION_GRANTED) {
+                new AlertDialog.Builder(mActivity)
+                        .setMessage("Insufficient permissions, please restart and agree to the permissions")
+                        .setPositiveButton("Quit",
+                                new DialogInterface.OnClickListener() {
+                                    public void onClick(DialogInterface dialoginterface, int i) {
+                                        mActivity.finish();
+                                    }
+                                })
+                        .show();
+                permissionAllGranted = false;
+                break;
             }
-        }, 1000);
-        mThreadHandler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                mCameraViewThread = new CameraViewThread(mImageView, mTextView);
-            }
-        }, 3000);
+        }
+        //if permissions are all granted, init uSensSkeleton
+        if (permissionAllGranted) {
+                //After init uSensSkeleton, open the camera
+                // for Camera2 running only when SKD >=23
+                mCameraThread.initLooper();
+                mCameraThread.openCamera();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (mCameraThread.mImageReader!= null) {
+            mCameraThread.mImageReader.close();
+            mCameraThread.mImageReader = null;
+        }
+        super.onDestroy();
+    }
+
+    @Override
+    protected void onPause()
+    {
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume(){
+        super.onResume();
     }
 }

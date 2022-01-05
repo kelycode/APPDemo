@@ -1,211 +1,245 @@
 package com.kavin.camera2api;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
+import android.content.Context;
 import android.graphics.ImageFormat;
+import android.graphics.Matrix;
+import android.graphics.RectF;
+import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
+import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
-import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
 import android.os.Handler;
-import android.support.v4.content.ContextCompat;
-import android.view.Surface;
 import android.os.HandlerThread;
-import android.content.Context;
-import android.widget.Toast;
+import android.util.Size;
+import android.view.Surface;
+import android.view.TextureView;
+
+import com.kavin.camera2api.tools.ImageTool;
+import com.usens.androidphonecamera.R;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Arrays;
 
-public class CameraThread extends HandlerThread {
-    private Handler mThreadHandler;
-    private Context mContext;
-    private int mCameraIndex;
-    private CameraManager mCameraManager;
+public class CameraThread implements TextureView.SurfaceTextureListener{
+    private final int VIDEO_WIDTH = 640;//input Resolution WIDTH
+    private final int VIDEO_HEIGHT = 480;//input Resolution HEIGHT
     private CameraDevice mCameraDevice;
-    private CameraCaptureSession mCameraCaptureSession;
-    private ImageReader mImageReader;
-    private CaptureRequest.Builder mCaptureRequestBuilder;
-    private AtomicBoolean mIsCameraOpened;
-    private byte[] mCurrentImage;
-    //Listener for imagereader
-    private ImageReader.OnImageAvailableListener mReaderListener = new ImageReader.OnImageAvailableListener() {
-        @Override
-        public void onImageAvailable(ImageReader reader) {
-            Image image = null;
-            try {
-                image = reader.acquireLatestImage();
-                ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-            } catch (Exception e) {
-                e.printStackTrace();
-            } finally {
-                if (image != null) {
-                    image.close();
-                }
-            }
+    public ImageReader mImageReader;
+    private CaptureRequest.Builder mPreviewBuilder;
+    private Handler mHandler;
+    private HandlerThread mThreadHandler;
+    private Size mPreviewSize;
+    public MainActivity mActivity;
+    private TextureView mPreviewView;
+    public String currentCameraID = "0";//using FrontCamera    normal id :1
+
+
+    public CameraThread(MainActivity activity) {
+        mActivity = activity;
+    }
+
+    /**
+     * init Thread Only for Camera2
+     */
+    public void initLooper() {
+        mThreadHandler = new HandlerThread("CAMERA2");
+        mThreadHandler.start();
+        mHandler = new Handler(mThreadHandler.getLooper());//using a new looper
+//        mHandler = new Handler(getMainLooper());//using main looper
+    }
+    /**
+     * init PreviewView
+     * PreviewView use for show video preview
+     */
+    public void initTextureView() {
+        mPreviewView = (TextureView) mActivity.findViewById(R.id.textureview);
+        mPreviewView.setSurfaceTextureListener(this);
+    }
+
+    @Override
+    public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
+        if (android.os.Build.VERSION.SDK_INT < 23) {
+            openCamera();
         }
-    };
-    //Callbacks in camera open
-    private CameraDevice.StateCallback mCameraOpenStateCallback = new CameraDevice.StateCallback() {
+    }
 
-        @Override
-        public void onOpened(CameraDevice cameraDevice) {
-            mCameraDevice = cameraDevice;
-            startVideoCapture();
+    @Override
+    public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
+        configureTransform(width, height);
+    }
+
+    @Override
+    public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+        return false;
+    }
+
+    @Override
+    public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+
+    }
+    /**
+     * Rotate View base on moble phone orientation
+     */
+    public void configureTransform(int viewWidth, int viewHeight) {
+        if (null == mPreviewView || null == mPreviewSize || null == mActivity) {
+            return;
         }
-
-        @Override
-        public void onDisconnected(CameraDevice cameraDevice) {
-            cameraDevice.close();
-            mCameraDevice = null;
+        int rotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
+        Matrix matrix = new Matrix();
+        RectF viewRect = new RectF(0, 0, viewWidth, viewHeight);
+        RectF bufferRect = new RectF(0, 0, mPreviewSize.getHeight(), mPreviewSize.getWidth());
+        float centerX = viewRect.centerX();
+        float centerY = viewRect.centerY();
+        //Log.d("Surface.ROTATION_90","Surface.ROTATION_90   "+rotation);
+        if (Surface.ROTATION_90 == rotation || Surface.ROTATION_270 == rotation) {
+            bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY());
+            matrix.setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL);
+            float scale = Math.max(
+                    (float) viewHeight / mPreviewSize.getHeight(),
+                    (float) viewWidth / mPreviewSize.getWidth());
+            matrix.postScale(scale, scale, centerX, centerY);
+            matrix.postRotate(90 * (rotation - 2), centerX, centerY);
+        } else if (Surface.ROTATION_180 == rotation) {
+            matrix.postRotate(180, centerX, centerY);
+        } else if (Surface.ROTATION_0 == rotation) {
+            matrix.postScale(3/4f, 4/3f, centerX, centerY);
+            matrix.postScale(4/3f, 4/3f, centerX, centerY);
         }
+        mPreviewView.setTransform(matrix);
+    }
 
-        @Override
-        public void onError(CameraDevice cameraDevice, int error) {
-            cameraDevice.close();
-            mCameraDevice = null;
-            Toast.makeText(mContext, "Failed to open camera", Toast.LENGTH_SHORT).show();
-        }
-    };
-
-    //Calbacks in setup capture session
-    private CameraCaptureSession.StateCallback mCreateCaptureSessionStateCallback = new CameraCaptureSession.StateCallback() {
-
-        @Override
-        public void onConfigured(CameraCaptureSession cameraCaptureSession) {
-            mCameraCaptureSession = cameraCaptureSession;
-            updatePreview();
-        }
-
-        @Override
-        public void onConfigureFailed(CameraCaptureSession cameraCaptureSession) {
-            Toast.makeText(mContext, "Failed to start capture session.", Toast.LENGTH_SHORT).show();
-        }
-    };
-
-    protected void updatePreview() {
-        mCaptureRequestBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
+    /**
+     * start Preview and register imageReader
+     * @param camera using camera device
+     * Call startPreview(Camera2) @ onOpened()
+     */
+    SurfaceTexture texture;
+    private void startPreview(CameraDevice camera) throws CameraAccessException {
+        while (!mPreviewView.isAvailable());
+        texture = mPreviewView.getSurfaceTexture();
+        texture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());
+        Surface surface = new Surface(texture);
         try {
-            mCameraCaptureSession.setRepeatingRequest(mCaptureRequestBuilder.build(), null, mThreadHandler);
-            mIsCameraOpened.set(true);
+            // create preview request
+            mPreviewBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
         } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+        //open AE and AF mode
+        mPreviewBuilder.set(CaptureRequest.CONTROL_AE_MODE,CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
+        mPreviewBuilder.set(CaptureRequest.CONTROL_AF_MODE,CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+        //get image data by YUV_420_NV21 type
+        mImageReader = ImageReader.newInstance(VIDEO_WIDTH, VIDEO_HEIGHT, ImageFormat.YUV_420_888, 2);
+        mImageReader.setOnImageAvailableListener(mOnImageAvailableListener, mHandler);
+        //add two target
+        // using surface to show camera video
+        // using mImageReader to get image raw data
+        mPreviewBuilder.addTarget(surface);
+        mPreviewBuilder.addTarget(mImageReader.getSurface());
+        camera.createCaptureSession(Arrays.asList( surface,mImageReader.getSurface()),mSessionStateCallback, mHandler);
+    }
+
+    /**
+     *  Camera2 camera ->onOpened()->startPreview(Camera2)
+     *  Camera2 open() @ onRequestPermissionsResult() when SDK ver>=23 but @ onSurfaceTextureAvailable() when SDK version < 23
+     */
+    public void openCamera(){
+        try {
+            //init cameraManager
+            CameraManager cameraManager = (CameraManager) mActivity.getSystemService(Context.CAMERA_SERVICE);
+            CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(currentCameraID);
+            StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            mPreviewSize = map.getOutputSizes(SurfaceTexture.class)[0];
+            ///* the above code is also @setupPreviewSize(cameraID); */
+            configureTransform(mPreviewView.getWidth(),mPreviewView.getHeight());
+            //set camera id and open camera
+            cameraManager.openCamera(currentCameraID, mCameraDeviceStateCallback, mHandler);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        } catch (SecurityException e) {
             e.printStackTrace();
         }
     }
 
-    private void startVideoCapture() {
-        try {
-            mCaptureRequestBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
-            mCaptureRequestBuilder.addTarget(mImageReader.getSurface());
-            List<Surface> outputSurfaces = new ArrayList<Surface>(1);
-            outputSurfaces.add(mImageReader.getSurface());
-            mCameraDevice.createCaptureSession(outputSurfaces,
-                    mCreateCaptureSessionStateCallback, mThreadHandler);
-        } catch (CameraAccessException e) {
-
-            Toast.makeText(mContext, "Failed to start capturing.", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    public CameraThread(Context context) {
-        super("CameraThread");
-        mIsCameraOpened = new AtomicBoolean(false);
-        mContext = context;
-        //Thread start
-        start();
-        mThreadHandler = new Handler(getLooper());
-        mCurrentImage = new byte[640 * 480 * 3];
-        //Set image reader to read image
-        mImageReader = ImageReader.newInstance(640, 480, ImageFormat.YUV_420_888, 1);
-        mImageReader.setOnImageAvailableListener(mReaderListener, mThreadHandler);
-        //Get CameraManager
-        mCameraManager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
-    }
-
-    public void startCameraFromOwner(final int cameraIndex) {
-        mThreadHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                stopCameraInternal();
+    private CameraCaptureSession.StateCallback mSessionStateCallback = new CameraCaptureSession.StateCallback() {
+        @Override
+        public void onConfigured(CameraCaptureSession session) {
+            try {
+                updatePreview(session);
+            } catch (CameraAccessException e) {
+                e.printStackTrace();
             }
-        });
-        if (ContextCompat.checkSelfPermission(mContext,
-                Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(mContext, "Camera permission not granted.", Toast.LENGTH_SHORT).show();
-            return;
         }
-        try {
-            if (cameraIndex < mCameraManager.getCameraIdList().length) {
-                mCameraIndex = cameraIndex;
-                mThreadHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        startCameraInternal(cameraIndex);
-                    }
-                });
+        @Override
+        public void onConfigureFailed(CameraCaptureSession session) {
+
+        }
+    };
+
+    private void updatePreview(CameraCaptureSession session) throws CameraAccessException {
+        session.setRepeatingRequest(mPreviewBuilder.build(), null, mHandler);
+    }
+
+    private CameraDevice.StateCallback mCameraDeviceStateCallback = new CameraDevice.StateCallback() {
+        @Override
+        public void onOpened(CameraDevice camera) {
+            try {
+                mCameraDevice = camera;
+                startPreview(camera);
+            } catch (CameraAccessException e) {
+                e.printStackTrace();
             }
-        } catch (CameraAccessException e) {
-            Toast.makeText(mContext, "Cannot access the camera.", Toast.LENGTH_SHORT).show();
         }
-    }
-
-    private void startCameraInternal(final int cameraIndex) {
-        if (ContextCompat.checkSelfPermission(mContext,
-                Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(mContext, "Camera permission not granted.", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        try {
-            String cameraId = mCameraManager.getCameraIdList()[cameraIndex];
-            mCameraManager.openCamera(cameraId, mCameraOpenStateCallback, mThreadHandler);
-        } catch (Exception e) {
-            Toast.makeText(mContext, "Cannot access the camera.", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    public void stopCameraFromOwner() {
-        mThreadHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                stopCameraInternal();
-            }
-        });
-    }
-
-    private void stopCameraInternal() {
-        mIsCameraOpened.set(false);
-        if (mCameraCaptureSession != null) {
-            mCameraCaptureSession.close();
-            mCameraCaptureSession = null;
-        }
-        if (mCameraDevice != null) {
+        @Override
+        public void onDisconnected(CameraDevice camera) {
             mCameraDevice.close();
             mCameraDevice = null;
         }
-    }
-
-    public int getNumCamera() {
-        if (mCameraManager == null) {
-            return 0;
-        } else {
-            try {
-                return mCameraManager.getCameraIdList().length;
-            } catch (Exception e) {
-                return 0;
-            }
+        @Override
+        public void onError(CameraDevice camera, int error) {
         }
-    }
+    };
 
-    public boolean isCameraOpened() {
-        return mIsCameraOpened.get();
-    }
+    /**
+     * ImageReader call back
+     */
+    private ImageReader.OnImageAvailableListener mOnImageAvailableListener
+            = new ImageReader.OnImageAvailableListener() {
+        @Override
+        public void onImageAvailable(ImageReader reader) {
+            Image img = reader.acquireLatestImage();
+            if (img == null) {
+                return;
+            }
 
+            imageProcess(img);
+            img.close();
+        }
+
+        private void imageProcess(Image image) {
+            Image.Plane[] planes = image.getPlanes();
+
+            // Y-buffer
+            ByteBuffer yBuffer = planes[0].getBuffer();
+            int ySize = yBuffer.remaining();
+            byte[] yBytes = new byte[ySize];
+            yBuffer.get(yBytes);
+
+            // VU-buffer
+            ByteBuffer vuBuffer = planes[2].getBuffer();
+            int vuSize = vuBuffer.remaining();
+            byte[] vuBytes = new byte[vuSize];
+            vuBuffer.get(vuBytes);
+
+            //Merger yBytes and vuBytes
+            byte[] yuvBytes = ImageTool.byteMerger(yBytes,vuBytes);
+
+        }
+    };
 }
