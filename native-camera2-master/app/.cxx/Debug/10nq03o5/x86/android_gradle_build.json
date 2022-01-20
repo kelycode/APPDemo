@@ -1,0 +1,40 @@
+{
+  "stringTable": {},
+  "buildFiles": [
+    "E:\\L\\AndroidSystem\\Camera\\native-camera2-master\\app\\src\\main\\jni\\CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "C:\\Users\\VR.DESKTOP-PT3JV1D\\AppData\\Local\\Android\\Sdk\\cmake\\3.10.2.4988404\\bin\\ninja.exe",
+      "-C",
+      "E:\\L\\AndroidSystem\\Camera\\native-camera2-master\\app\\.cxx\\Debug\\10nq03o5\\x86",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "C:\\Users\\VR.DESKTOP-PT3JV1D\\AppData\\Local\\Android\\Sdk\\cmake\\3.10.2.4988404\\bin\\ninja.exe",
+    "-C",
+    "E:\\L\\AndroidSystem\\Camera\\native-camera2-master\\app\\.cxx\\Debug\\10nq03o5\\x86",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "native-camera2-jni-Debug-x86": {
+      "buildCommandComponents": [
+        "C:\\Users\\VR.DESKTOP-PT3JV1D\\AppData\\Local\\Android\\Sdk\\cmake\\3.10.2.4988404\\bin\\ninja.exe",
+        "-C",
+        "E:\\L\\AndroidSystem\\Camera\\native-camera2-master\\app\\.cxx\\Debug\\10nq03o5\\x86",
+        "native-camera2-jni"
+      ],
+      "buildType": "debug",
+      "abi": "x86",
+      "artifactName": "native-camera2-jni",
+      "output": "E:\\L\\AndroidSystem\\Camera\\native-camera2-master\\app\\build\\intermediates\\cxx\\Debug\\10nq03o5\\obj\\x86\\libnative-camera2-jni.so",
+      "runtimeFiles": []
+    }
+  },
+  "toolchains": {},
+  "cFileExtensions": [],
+  "cppFileExtensions": [
+    "cpp"
+  ]
+}

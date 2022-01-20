@@ -1,0 +1,3 @@
+ninja: Entering directory `E:\L\AndroidSystem\Camera\native-camera2-master\app\.cxx\Debug\10nq03o5\arm64-v8a'
+[1/2] Building CXX object CMakeFiles/native-camera2-jni.dir/native-camera2-jni.cpp.o
+[2/2] Linking CXX shared library E:\L\AndroidSystem\Camera\native-camera2-master\app\build\intermediates\cxx\Debug\10nq03o5\obj\arm64-v8a\libnative-camera2-jni.so

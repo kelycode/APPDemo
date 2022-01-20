@@ -1,0 +1,7 @@
+Executable : C:\Users\VR.DESKTOP-PT3JV1D\AppData\Local\Android\Sdk\cmake\3.10.2.4988404\bin\ninja.exe
+arguments : 
+-C
+E:\L\AndroidSystem\Camera\native-camera2-master\app\.cxx\Debug\10nq03o5\arm64-v8a
+native-camera2-jni
+jvmArgs : 
+

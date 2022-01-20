@@ -1,0 +1,6 @@
+# ninja log v5
+0	101	664352955	CMakeFiles/native-camera2-jni.dir/native-camera2-jni.cpp.o	be3154e10abe3d94
+102	162	664352955	E:/L/AndroidSystem/Camera/native-camera2-master/app/build/intermediates/cxx/Debug/10nq03o5/obj/arm64-v8a/libnative-camera2-jni.so	d35f137a86e51b0a
+0	6	0	clean	29d42a9bc3b1d6bf
+2	100	664352996	CMakeFiles/native-camera2-jni.dir/native-camera2-jni.cpp.o	be3154e10abe3d94
+100	155	664352996	E:/L/AndroidSystem/Camera/native-camera2-master/app/build/intermediates/cxx/Debug/10nq03o5/obj/arm64-v8a/libnative-camera2-jni.so	d35f137a86e51b0a
