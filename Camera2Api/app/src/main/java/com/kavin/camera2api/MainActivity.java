@@ -7,8 +7,11 @@ import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.graphics.PixelFormat;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.View;
+import android.widget.Button;
 
 import androidx.core.app.ActivityCompat;
 
@@ -18,10 +21,9 @@ public class MainActivity extends Activity{
 
     public static final int MULTIPLE_REQUEST_CODE = 8736;
     public static MainActivity mActivity;
-    private SurfaceView mSurfaceview;//show camera
-    private SurfaceHolder mSurfaceHolder;
 
     public CameraThread mCameraThread;
+    Button take_picture;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,10 +31,8 @@ public class MainActivity extends Activity{
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mSurfaceview = (SurfaceView) mActivity.findViewById(R.id.surfaceview);
-        mSurfaceview.setZOrderOnTop(true);//on the top level
-        mSurfaceview.getHolder().setFormat(PixelFormat.TRANSPARENT);//make this view transparent
-        mSurfaceHolder = mSurfaceview.getHolder();
+        take_picture = findViewById(R.id.take_picture);
+
 
         mCameraThread = new CameraThread(this);
         mCameraThread.initTextureView();
@@ -41,6 +41,14 @@ public class MainActivity extends Activity{
         if (android.os.Build.VERSION.SDK_INT >= 23) {
             ActivityCompat.requestPermissions(this, new String[] {Manifest.permission.CAMERA}, MULTIPLE_REQUEST_CODE);
         }
+
+        take_picture.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Log.i("kavin","Onlick");
+                mCameraThread.takePic();
+            }
+        });
     }
 
     /**
